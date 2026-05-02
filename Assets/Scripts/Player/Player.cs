@@ -10,6 +10,8 @@ public class Player : MonoBehaviour
     public float jumpForce = 10.0f;
     public float groundCheckSpacing = 0.5f;
     public float groundCheckDistance = 0.5f;
+    public float wallCheckSpacing = 0.5f;
+    public float wallCheckDistance = 0.5f;
     public float maxJumpQueue = 0.1f;
     public float maxFallSpeed = 5f;
 
@@ -25,7 +27,8 @@ public class Player : MonoBehaviour
     public bool isAttacking = false;
     public bool isFacingRight = true;
     public bool jumpBuffer = false;
-
+    public bool isLedge = false;
+    
 
 
 
@@ -50,10 +53,12 @@ public class Player : MonoBehaviour
     private float xinput;
     private Rigidbody2D rb;
     private playerState currentState = playerState.SLEEP;
+    private bool jumpTerminate = false;
     [SerializeField]private float jumpTimeCtr = 0;
 
     //Collision Variables
     [SerializeField] private LayerMask whatIsGround;
+    [SerializeField] private LayerMask whatIsWall;
 
 
     private void Awake()
@@ -96,6 +101,10 @@ public class Player : MonoBehaviour
             jumpBuffer = true;
             jumpTimeCtr = maxJumpQueue;
         }
+        if(Input.GetKeyUp(KeyCode.Space))
+        {
+            jumpTerminate = true;
+        }
         
     }
 
@@ -112,7 +121,16 @@ public class Player : MonoBehaviour
 
         if (rb.linearVelocity.y > 0)
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 100f * Time.deltaTime);
+            if(jumpTerminate)
+            {
+                rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y/2);
+            }
+            else
+            {
+                rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 100f * Time.deltaTime);
+            }
+
+            
         }
         else
         {
@@ -127,11 +145,7 @@ public class Player : MonoBehaviour
             
 
         }
-        
-
-        
-
-
+        jumpTerminate = false;
     }
 
     private void HandleJump()
@@ -234,15 +248,42 @@ public class Player : MonoBehaviour
 
     private void HandleCollision()
     {
+        bool isWalled1 = false;
+        bool isWalled2 = false;
         bool isGrounded1 = Physics2D.Raycast(transform.position + new Vector3(groundCheckSpacing, 0), Vector2.down, groundCheckDistance, whatIsGround);
         bool isGrounded2 = Physics2D.Raycast(transform.position + new Vector3(-groundCheckSpacing, 0), Vector2.down, groundCheckDistance, whatIsGround);
         isGrounded = isGrounded1 || isGrounded2;
+
+        if(isFacingRight)
+        {
+            isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.right, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position, Vector2.right, wallCheckDistance, whatIsWall);
+        }
+        else
+        {
+            isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.left, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position, Vector2.left, wallCheckDistance, whatIsWall);
+        }
+        isWalled = isWalled1 && isWalled2;
+
+        if(isWalled2 && !isWalled1)
+        {
+            isLedge = true;
+        }
+        else
+        {
+            isLedge = false;
+        }
+
+
     }
 
     private void OnDrawGizmos()
     {
         Gizmos.DrawLine(transform.position + new Vector3(groundCheckSpacing, 0), transform.position + new Vector3(groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
         Gizmos.DrawLine(transform.position + new Vector3(-groundCheckSpacing, 0), transform.position + new Vector3(-groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
+        Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing), transform.position + new Vector3(0, wallCheckSpacing) + new Vector3(wallCheckDistance, 0));
+        Gizmos.DrawLine(transform.position, transform.position + new Vector3(wallCheckDistance, 0));
         //Gizmos.DrawLine(transform.position + new Vector3(0, -1, 0), transform.position + new Vector3(0, -1, 0) + new Vector3(wallTouchDistance, 0));
         //Gizmos.DrawWireCube(attackPointForward_2.position, new Vector3(5f, 2f, 0f));
         //Gizmos.DrawWireSphere(attackPointUp.position, attackRadius);
