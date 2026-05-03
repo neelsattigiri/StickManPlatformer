@@ -610,7 +610,7 @@ Transform:
   m_GameObject: {fileID: 1208379017}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 3.5, y: -0.72, z: 0}
+  m_LocalPosition: {x: 1.97, y: -0.72, z: 0}
   m_LocalScale: {x: 3.368608, y: 2.6, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -671,8 +671,8 @@ CapsuleCollider2D:
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: -0.024942756, y: -0.07154709}
-  m_Size: {x: 0.4501145, y: 1.6034502}
+  m_Offset: {x: -0.024942756, y: -0.059565067}
+  m_Size: {x: 0.4501145, y: 1.5794861}
   m_Direction: 0
 --- !u!50 &1566503946
 Rigidbody2D:
@@ -710,7 +710,7 @@ Transform:
   m_GameObject: {fileID: 1566503944}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0.55, y: 1.454, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -792,7 +792,7 @@ MonoBehaviour:
   jumpForce: 30
   groundCheckSpacing: 0.18
   groundCheckDistance: 0.95
-  wallCheckSpacing: 0.61
+  wallCheckSpacing: 0.71
   wallCheckDistance: 0.24
   maxJumpQueue: 0.2
   maxFallSpeed: 12

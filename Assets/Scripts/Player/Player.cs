@@ -307,10 +307,14 @@ public class Player : MonoBehaviour
         {
             SwitchState(playerState.WALLSLIDING);            
         }
-        if(isLedge)
+        if(isLedge && rb.linearVelocityY <= 0)
         {
-            rb.linearVelocity = new Vector2(0, 0);
-            SwitchState(playerState.CLIMBINGLEDGE);
+            if(((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
+            {
+                rb.linearVelocity = new Vector2(0, 0);
+                SwitchState(playerState.CLIMBINGLEDGE);
+            }
+            
         }
     }
 
@@ -342,12 +346,12 @@ public class Player : MonoBehaviour
         if(isFacingRight)
         {
             isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.right, wallCheckDistance, whatIsWall);
-            isWalled2 = Physics2D.Raycast(transform.position, Vector2.right, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.7f), Vector2.right, wallCheckDistance, whatIsWall);
         }
         else
         {
             isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.left, wallCheckDistance, whatIsWall);
-            isWalled2 = Physics2D.Raycast(transform.position, Vector2.left, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.7f), Vector2.left, wallCheckDistance, whatIsWall);
         }
         isWalled = isWalled1 && isWalled2;
 
@@ -384,11 +388,11 @@ public class Player : MonoBehaviour
     {
         if (isFacingRight)
         {
-            transform.position = new Vector3(transform.position.x + 2.27f, transform.position.y + 1.43f);
+            transform.position = new Vector3(transform.position.x + 0.55f, transform.position.y + 1.45f);
         }
         else
         {
-            transform.position = new Vector3(transform.position.x - 2.27f, transform.position.y + 1.43f);
+            transform.position = new Vector3(transform.position.x - 0.55f, transform.position.y + 1.45f);
         }
         
     }
@@ -405,7 +409,7 @@ public class Player : MonoBehaviour
         Gizmos.DrawLine(transform.position + new Vector3(groundCheckSpacing, 0), transform.position + new Vector3(groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
         Gizmos.DrawLine(transform.position + new Vector3(-groundCheckSpacing, 0), transform.position + new Vector3(-groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
         Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing), transform.position + new Vector3(0, wallCheckSpacing) + new Vector3(wallCheckDistance, 0));
-        Gizmos.DrawLine(transform.position, transform.position + new Vector3(wallCheckDistance, 0));
+        Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing*0.7f), transform.position + new Vector3(0, wallCheckSpacing*0.7f) + new Vector3(wallCheckDistance, 0));
         //Gizmos.DrawWireSphere(attackPointUp.position, attackRadius);
         //Gizmos.DrawWireSphere(attackPointDown.position, attackRadius);
     }
