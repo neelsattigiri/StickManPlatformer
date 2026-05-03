@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Linq.Expressions;
 using UnityEngine;
 
@@ -18,7 +19,6 @@ public class Player : MonoBehaviour
 
 
 
-
     //Global State Control Variables
     public bool canMove = true;
     public bool isGrounded = true;
@@ -28,6 +28,9 @@ public class Player : MonoBehaviour
     public bool isFacingRight = true;
     public bool jumpBuffer = false;
     public bool isLedge = false;
+    public bool canDoubleJump = false;
+    public bool actionLock = false;
+    
     
 
 
@@ -39,10 +42,12 @@ public class Player : MonoBehaviour
         IDLE,
         RUNNING,
         JUMPING,
+        DOUBLEJUMPING,
         FALLING,
         WALLSLIDING,
         DASHING,
-        ATTACKING
+        ATTACKING,
+        CLIMBINGLEDGE
 
     }
 
@@ -77,20 +82,29 @@ public class Player : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        HandleInput();
-        HandleState();
-        HandleCollision();
-        HandleCounters();
+        if(!actionLock)
+        {
+            HandleInput();
+            HandleState();
+            HandleCollision();
+            HandleCounters();
+        }
+        
     }
 
 
-    
+
+
     private void FixedUpdate()
     {
-        HandleMovement();
-        HandleFlip();
-        HandleFall();
-        HandleJump();
+        if(!actionLock)
+        {
+            HandleMovement();
+            HandleFlip();
+            HandleFall();
+            HandleJump();
+        }
+        
         
     }
 
@@ -165,11 +179,12 @@ public class Player : MonoBehaviour
     {
         if(canMove)
         {
-            if(jumpBuffer && (isGrounded || isWalled) && jumpTimeCtr > 0)
+            if((jumpBuffer && (isGrounded || isWalled) && jumpTimeCtr > 0) || (jumpBuffer && canDoubleJump))
             {
                 TryToJump();
                 jumpBuffer = false;
             }
+
         }
     }
 
@@ -195,6 +210,11 @@ public class Player : MonoBehaviour
 
             }
         }
+        else if(!isGrounded && !isWalled && canDoubleJump)
+        {
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce/1.2f);
+            canDoubleJump = false;
+        }
     }
 
     private void HandleFlip()
@@ -216,27 +236,38 @@ public class Player : MonoBehaviour
         if(newState != currentState)
         {
             currentState = newState;
-        }
-        else
-        {
+        
             switch(currentState)
             {
                 case playerState.IDLE:
                     playerAnimator.Play("PlayerIdle");
+                    Debug.Log("Idle");
                     break;
                 case playerState.RUNNING:
                     playerAnimator.Play("PlayerRun");
+                    Debug.Log("Run");
                     break;
                 case playerState.JUMPING:
                     playerAnimator.Play("PlayerJump");
+                    Debug.Log("Jump");
+                    break;
+                case playerState.DOUBLEJUMPING:
+                    playerAnimator.Play("PlayerDoubleJump");
+                    Debug.Log("DoubleJump");
                     break;
                 case playerState.FALLING:
                     playerAnimator.Play("PlayerFall");
+                    Debug.Log("Fall");
+                    break;
+                case playerState.CLIMBINGLEDGE:
+                    playerAnimator.Play("PlayerClimbLedge");
+                    Debug.Log("ClimbingLedge");
                     break;
                 case playerState.DASHING:
                     break;
                 case playerState.WALLSLIDING:
                     playerAnimator.Play("PlayerWallHang");
+                    Debug.Log("WallHang");
                     break;
                 case playerState.ATTACKING:
                     break;
@@ -258,7 +289,15 @@ public class Player : MonoBehaviour
         }
         if(!isGrounded && rb.linearVelocityY > 0)
         {
-            SwitchState(playerState.JUMPING);
+            if(canDoubleJump)
+            {
+                SwitchState(playerState.JUMPING);
+            }
+            else
+            {
+                SwitchState(playerState.DOUBLEJUMPING);
+            }
+
         }
         else if(!isGrounded && !isWalled && rb.linearVelocityY <= 0)
         {
@@ -268,6 +307,11 @@ public class Player : MonoBehaviour
         {
             SwitchState(playerState.WALLSLIDING);            
         }
+        if(isLedge)
+        {
+            rb.linearVelocity = new Vector2(0, 0);
+            SwitchState(playerState.CLIMBINGLEDGE);
+        }
     }
 
     private void HandleCounters()
@@ -276,10 +320,15 @@ public class Player : MonoBehaviour
         {
             jumpTimeCtr -= Time.deltaTime;
         }
+        else
+        {
+            jumpBuffer = false;
+        }
         if(wallJumpTimeCtr >= 0)
         {
             wallJumpTimeCtr -= Time.deltaTime;
         }
+
     }
 
     private void HandleCollision()
@@ -310,9 +359,46 @@ public class Player : MonoBehaviour
         {
             isLedge = false;
         }
+        if(isWalled || isGrounded)
+        {
+            canDoubleJump = true;
+        }
 
 
     }
+
+
+    public void SetActionLock()
+    {
+        actionLock = true;
+    }
+
+    public void ReleaseActionLock()
+    {
+
+        actionLock = false;
+        LedgeClimbPositionReset();
+    }
+
+    public void LedgeClimbPositionReset()
+    {
+        if (isFacingRight)
+        {
+            transform.position = new Vector3(transform.position.x + 2.27f, transform.position.y + 1.43f);
+        }
+        else
+        {
+            transform.position = new Vector3(transform.position.x - 2.27f, transform.position.y + 1.43f);
+        }
+        
+    }
+
+    IEnumerator DelayedEnd()
+    {
+        yield return new WaitForEndOfFrame();
+        ReleaseActionLock();// Logic here
+    }
+
 
     private void OnDrawGizmos()
     {
