@@ -54,7 +54,8 @@ public class Player : MonoBehaviour
     private Rigidbody2D rb;
     private playerState currentState = playerState.SLEEP;
     private bool jumpTerminate = false;
-    [SerializeField]private float jumpTimeCtr = 0;
+    private float jumpTimeCtr = 0;
+    private float wallJumpTimeCtr = 0;
 
     //Collision Variables
     [SerializeField] private LayerMask whatIsGround;
@@ -105,6 +106,14 @@ public class Player : MonoBehaviour
         {
             jumpTerminate = true;
         }
+        if(wallJumpTimeCtr > 0)
+        {
+            canMove = false;
+        }
+        else
+        {
+            canMove = true;
+        }
         
     }
 
@@ -134,7 +143,11 @@ public class Player : MonoBehaviour
         }
         else
         {
-            if(rb.linearVelocity.y > -maxFallSpeed)
+            if(isWalled && ((isFacingRight && Input.GetKey(KeyCode.D))||(!isFacingRight && Input.GetKey(KeyCode.A))))
+            {
+                rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed/3);
+            }
+            else if(rb.linearVelocity.y > -maxFallSpeed)
             {
                 rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 50f * Time.deltaTime);
             }
@@ -152,7 +165,7 @@ public class Player : MonoBehaviour
     {
         if(canMove)
         {
-            if(jumpBuffer && isGrounded && jumpTimeCtr > 0)
+            if(jumpBuffer && (isGrounded || isWalled) && jumpTimeCtr > 0)
             {
                 TryToJump();
                 jumpBuffer = false;
@@ -167,6 +180,20 @@ public class Player : MonoBehaviour
 
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
 
+        }
+        else if(!isGrounded && isWalled)
+        {
+            if(isFacingRight)
+            {
+                rb.linearVelocity = new Vector2(-jumpForce/2.0f, jumpForce/1.2f);
+                wallJumpTimeCtr = 0.1f;
+            }
+            else
+            {
+                rb.linearVelocity = new Vector2(jumpForce /2.0f, jumpForce / 1.2f);
+                wallJumpTimeCtr = 0.1f;
+
+            }
         }
     }
 
@@ -209,6 +236,7 @@ public class Player : MonoBehaviour
                 case playerState.DASHING:
                     break;
                 case playerState.WALLSLIDING:
+                    playerAnimator.Play("PlayerWallHang");
                     break;
                 case playerState.ATTACKING:
                     break;
@@ -232,9 +260,13 @@ public class Player : MonoBehaviour
         {
             SwitchState(playerState.JUMPING);
         }
-        else if(!isGrounded && rb.linearVelocityY <= 0)
+        else if(!isGrounded && !isWalled && rb.linearVelocityY <= 0)
         {
             SwitchState(playerState.FALLING);
+        }
+        if(!isGrounded && isWalled && rb.linearVelocityY <= 0)
+        {
+            SwitchState(playerState.WALLSLIDING);            
         }
     }
 
@@ -243,6 +275,10 @@ public class Player : MonoBehaviour
         if(jumpTimeCtr >= 0)
         {
             jumpTimeCtr -= Time.deltaTime;
+        }
+        if(wallJumpTimeCtr >= 0)
+        {
+            wallJumpTimeCtr -= Time.deltaTime;
         }
     }
 
@@ -284,8 +320,6 @@ public class Player : MonoBehaviour
         Gizmos.DrawLine(transform.position + new Vector3(-groundCheckSpacing, 0), transform.position + new Vector3(-groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
         Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing), transform.position + new Vector3(0, wallCheckSpacing) + new Vector3(wallCheckDistance, 0));
         Gizmos.DrawLine(transform.position, transform.position + new Vector3(wallCheckDistance, 0));
-        //Gizmos.DrawLine(transform.position + new Vector3(0, -1, 0), transform.position + new Vector3(0, -1, 0) + new Vector3(wallTouchDistance, 0));
-        //Gizmos.DrawWireCube(attackPointForward_2.position, new Vector3(5f, 2f, 0f));
         //Gizmos.DrawWireSphere(attackPointUp.position, attackRadius);
         //Gizmos.DrawWireSphere(attackPointDown.position, attackRadius);
     }
