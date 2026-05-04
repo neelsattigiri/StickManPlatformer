@@ -66,6 +66,7 @@ public class Player : MonoBehaviour
     private float jumpTimeCtr = 0;
     private float wallJumpTimeCtr = 0;
     private float dashTimeCtr = 0;
+    private int rollCounter = 0;
 
     //Collision Variables
     [SerializeField] private LayerMask whatIsGround;
@@ -343,10 +344,11 @@ public class Player : MonoBehaviour
                 else
                 {
                     SwitchState(playerState.DOUBLEJUMPING);
+                    rollCounter = 2;
                 }
 
             }
-            else if (!isGrounded && !isWalled && rb.linearVelocityY <= 0)
+            else if (!isGrounded && !isWalled && rb.linearVelocityY <= 0 && rollCounter <= 0)
             {
                 SwitchState(playerState.FALLING);
             }
@@ -366,6 +368,14 @@ public class Player : MonoBehaviour
         }
         
         
+    }
+
+    public void DecrementRoll()
+    {
+        if(rollCounter > 0)
+        {
+            rollCounter--;
+        }
     }
 
     private void HandleCounters()
