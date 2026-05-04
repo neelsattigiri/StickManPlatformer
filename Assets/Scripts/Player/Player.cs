@@ -8,6 +8,9 @@ public class Player : MonoBehaviour
 
     public Animator playerAnimator;
     public float moveSpeed = 5.0f;
+    public float dashSpeed = 15f;
+    public float dashDuration = 0.5f;
+    public float dashCooldown = 1.0f;
     public float jumpForce = 10.0f;
     public float groundCheckSpacing = 0.5f;
     public float groundCheckDistance = 0.5f;
@@ -24,6 +27,7 @@ public class Player : MonoBehaviour
     public bool isGrounded = true;
     public bool isWalled = false;
     public bool isDashing = false;
+    public bool canDash = true;
     public bool isAttacking = false;
     public bool isFacingRight = true;
     public bool jumpBuffer = false;
@@ -61,6 +65,7 @@ public class Player : MonoBehaviour
     private bool jumpTerminate = false;
     private float jumpTimeCtr = 0;
     private float wallJumpTimeCtr = 0;
+    private float dashTimeCtr = 0;
 
     //Collision Variables
     [SerializeField] private LayerMask whatIsGround;
@@ -111,15 +116,19 @@ public class Player : MonoBehaviour
     private void HandleInput()
     {
         xinput = Input.GetAxisRaw("Horizontal");
-        if(Input.GetKeyDown(KeyCode.Space))
+
+        
+        if (Input.GetKeyDown(KeyCode.Space))
         {
             jumpBuffer = true;
             jumpTimeCtr = maxJumpQueue;
         }
-        if(Input.GetKeyUp(KeyCode.Space))
+        if (Input.GetKeyUp(KeyCode.Space))
         {
             jumpTerminate = true;
         }
+        
+        
         if(wallJumpTimeCtr > 0)
         {
             canMove = false;
@@ -128,58 +137,88 @@ public class Player : MonoBehaviour
         {
             canMove = true;
         }
-        
+
+        if (Input.GetKeyDown(KeyCode.LeftShift) && !isDashing && canDash)
+        {
+            dashTimeCtr = dashDuration;
+            canDash = false;
+        }
+
     }
 
     private void HandleMovement()
     {
         if(canMove)
         {
-            rb.linearVelocity = new Vector2(xinput * moveSpeed, rb.linearVelocity.y);
+            if(!isDashing)
+            {
+                rb.linearVelocity = new Vector2(xinput * moveSpeed, rb.linearVelocity.y);
+            }
+            else
+            {
+                if(isFacingRight)
+                {
+                    rb.linearVelocity = new Vector2(dashSpeed, 0);
+                }
+                else
+                {
+                    rb.linearVelocity = new Vector2(-dashSpeed, 0);
+                }
+                
+            }
         }
     }
 
     private void HandleFall()
     {
-
-        if (rb.linearVelocity.y > 0)
+        if(!isDashing)
         {
-            if(jumpTerminate)
+            if (rb.linearVelocity.y > 0)
             {
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y/2);
+                if (jumpTerminate)
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y / 2);
+                }
+                else
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 100f * Time.deltaTime);
+                }
+
+
             }
             else
             {
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 100f * Time.deltaTime);
-            }
+                if (isWalled && ((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed / 3);
+                }
+                else if (rb.linearVelocity.y > -maxFallSpeed)
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 50f * Time.deltaTime);
+                }
+                else
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed);
+                }
 
-            
+
+            }
+            jumpTerminate = false;
         }
-        else
+
+    else
         {
-            if(isWalled && ((isFacingRight && Input.GetKey(KeyCode.D))||(!isFacingRight && Input.GetKey(KeyCode.A))))
-            {
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed/3);
-            }
-            else if(rb.linearVelocity.y > -maxFallSpeed)
-            {
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 50f * Time.deltaTime);
-            }
-            else
-            {
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed);
-            }
-            
-
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
         }
-        jumpTerminate = false;
+
+        
     }
 
     private void HandleJump()
     {
         if(canMove)
         {
-            if((jumpBuffer && (isGrounded || isWalled) && jumpTimeCtr > 0) || (jumpBuffer && canDoubleJump))
+            if(((jumpBuffer && (isGrounded || isWalled) && jumpTimeCtr > 0) || (jumpBuffer && canDoubleJump)) && !isDashing)
             {
                 TryToJump();
                 jumpBuffer = false;
@@ -264,6 +303,8 @@ public class Player : MonoBehaviour
                     Debug.Log("ClimbingLedge");
                     break;
                 case playerState.DASHING:
+                    playerAnimator.Play("PlayerDash");
+                    Debug.Log("Dash");
                     break;
                 case playerState.WALLSLIDING:
                     playerAnimator.Play("PlayerWallHang");
@@ -279,43 +320,52 @@ public class Player : MonoBehaviour
 
     private void HandleState()
     {
-        if(isGrounded && (Math.Abs(rb.linearVelocityX) > 0))
+        if (isDashing)
         {
-            SwitchState(playerState.RUNNING);
+            SwitchState(playerState.DASHING);
         }
-        else if(isGrounded && (Math.Abs(rb.linearVelocityX) == 0))
+        else
         {
-            SwitchState(playerState.IDLE);
-        }
-        if(!isGrounded && rb.linearVelocityY > 0)
-        {
-            if(canDoubleJump)
+            if (isGrounded && (Math.Abs(rb.linearVelocityX) > 0))
             {
-                SwitchState(playerState.JUMPING);
+                SwitchState(playerState.RUNNING);
             }
-            else
+            else if (isGrounded && (Math.Abs(rb.linearVelocityX) == 0))
             {
-                SwitchState(playerState.DOUBLEJUMPING);
+                SwitchState(playerState.IDLE);
             }
+            if (!isGrounded && rb.linearVelocityY > 0)
+            {
+                if (canDoubleJump)
+                {
+                    SwitchState(playerState.JUMPING);
+                }
+                else
+                {
+                    SwitchState(playerState.DOUBLEJUMPING);
+                }
 
-        }
-        else if(!isGrounded && !isWalled && rb.linearVelocityY <= 0)
-        {
-            SwitchState(playerState.FALLING);
-        }
-        if(!isGrounded && isWalled && rb.linearVelocityY <= 0)
-        {
-            SwitchState(playerState.WALLSLIDING);            
-        }
-        if(isLedge && rb.linearVelocityY <= 0)
-        {
-            if(((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
-            {
-                rb.linearVelocity = new Vector2(0, 0);
-                SwitchState(playerState.CLIMBINGLEDGE);
             }
-            
+            else if (!isGrounded && !isWalled && rb.linearVelocityY <= 0)
+            {
+                SwitchState(playerState.FALLING);
+            }
+            if (!isGrounded && isWalled && rb.linearVelocityY <= 0)
+            {
+                SwitchState(playerState.WALLSLIDING);
+            }
+            if (isLedge && rb.linearVelocityY <= 0)
+            {
+                if (((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
+                {
+                    rb.linearVelocity = new Vector2(0, 0);
+                    SwitchState(playerState.CLIMBINGLEDGE);
+                }
+
+            }
         }
+        
+        
     }
 
     private void HandleCounters()
@@ -331,6 +381,22 @@ public class Player : MonoBehaviour
         if(wallJumpTimeCtr >= 0)
         {
             wallJumpTimeCtr -= Time.deltaTime;
+        }
+        if(dashTimeCtr > -dashCooldown)
+        {
+            dashTimeCtr -= Time.deltaTime;
+        }
+        if(dashTimeCtr > 0)
+        {
+            isDashing = true;
+        }
+        else
+        {
+            isDashing = false;
+        }
+        if(dashTimeCtr <= -dashCooldown && (isGrounded || isWalled))
+        {
+            canDash = true;
         }
 
     }
