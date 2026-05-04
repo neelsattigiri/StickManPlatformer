@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Linq.Expressions;
 using UnityEngine;
 
@@ -7,12 +8,16 @@ public class Player : MonoBehaviour
 
     public Animator playerAnimator;
     public float moveSpeed = 5.0f;
+    public float dashSpeed = 15f;
+    public float dashDuration = 0.5f;
+    public float dashCooldown = 1.0f;
     public float jumpForce = 10.0f;
     public float groundCheckSpacing = 0.5f;
     public float groundCheckDistance = 0.5f;
+    public float wallCheckSpacing = 0.5f;
+    public float wallCheckDistance = 0.5f;
     public float maxJumpQueue = 0.1f;
     public float maxFallSpeed = 5f;
-
 
 
 
@@ -22,10 +27,15 @@ public class Player : MonoBehaviour
     public bool isGrounded = true;
     public bool isWalled = false;
     public bool isDashing = false;
+    public bool canDash = true;
     public bool isAttacking = false;
     public bool isFacingRight = true;
     public bool jumpBuffer = false;
-
+    public bool isLedge = false;
+    public bool canDoubleJump = false;
+    public bool actionLock = false;
+    
+    
 
 
 
@@ -36,10 +46,12 @@ public class Player : MonoBehaviour
         IDLE,
         RUNNING,
         JUMPING,
+        DOUBLEJUMPING,
         FALLING,
         WALLSLIDING,
         DASHING,
-        ATTACKING
+        ATTACKING,
+        CLIMBINGLEDGE
 
     }
 
@@ -50,10 +62,15 @@ public class Player : MonoBehaviour
     private float xinput;
     private Rigidbody2D rb;
     private playerState currentState = playerState.SLEEP;
-    [SerializeField]private float jumpTimeCtr = 0;
+    private bool jumpTerminate = false;
+    private float jumpTimeCtr = 0;
+    private float wallJumpTimeCtr = 0;
+    private float dashTimeCtr = 0;
+    private int rollCounter = 0;
 
     //Collision Variables
     [SerializeField] private LayerMask whatIsGround;
+    [SerializeField] private LayerMask whatIsWall;
 
 
     private void Awake()
@@ -71,78 +88,143 @@ public class Player : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        HandleInput();
-        HandleState();
-        HandleCollision();
-        HandleCounters();
+        if(!actionLock)
+        {
+            HandleInput();
+            HandleState();
+            HandleCollision();
+            HandleCounters();
+        }
+        
     }
 
 
-    
+
+
     private void FixedUpdate()
     {
-        HandleMovement();
-        HandleFlip();
-        HandleFall();
-        HandleJump();
+        if(!actionLock)
+        {
+            HandleMovement();
+            HandleFlip();
+            HandleFall();
+            HandleJump();
+        }
+        
         
     }
 
     private void HandleInput()
     {
         xinput = Input.GetAxisRaw("Horizontal");
-        if(Input.GetKeyDown(KeyCode.Space))
+
+        
+        if (Input.GetKeyDown(KeyCode.Space))
         {
             jumpBuffer = true;
             jumpTimeCtr = maxJumpQueue;
         }
+        if (Input.GetKeyUp(KeyCode.Space))
+        {
+            jumpTerminate = true;
+        }
         
+        
+        if(wallJumpTimeCtr > 0)
+        {
+            canMove = false;
+        }
+        else
+        {
+            canMove = true;
+        }
+
+        if (Input.GetKeyDown(KeyCode.LeftShift) && !isDashing && canDash)
+        {
+            dashTimeCtr = dashDuration;
+            canDash = false;
+        }
+
     }
 
     private void HandleMovement()
     {
         if(canMove)
         {
-            rb.linearVelocity = new Vector2(xinput * moveSpeed, rb.linearVelocity.y);
+            if(!isDashing)
+            {
+                rb.linearVelocity = new Vector2(xinput * moveSpeed, rb.linearVelocity.y);
+            }
+            else
+            {
+                if(isFacingRight)
+                {
+                    rb.linearVelocity = new Vector2(dashSpeed, 0);
+                }
+                else
+                {
+                    rb.linearVelocity = new Vector2(-dashSpeed, 0);
+                }
+                
+            }
         }
     }
 
     private void HandleFall()
     {
-
-        if (rb.linearVelocity.y > 0)
+        if(!isDashing)
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 100f * Time.deltaTime);
-        }
-        else
-        {
-            if(rb.linearVelocity.y > -maxFallSpeed)
+            if (rb.linearVelocity.y > 0)
             {
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 50f * Time.deltaTime);
+                if (jumpTerminate)
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y / 2);
+                }
+                else
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 100f * Time.deltaTime);
+                }
+
+
             }
             else
             {
-                rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed);
+                if (isWalled && ((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed / 3);
+                }
+                else if (rb.linearVelocity.y > -maxFallSpeed)
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 50f * Time.deltaTime);
+                }
+                else
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed);
+                }
+
+
             }
-            
-
+            jumpTerminate = false;
         }
-        
+
+    else
+        {
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
+        }
 
         
-
-
     }
 
     private void HandleJump()
     {
         if(canMove)
         {
-            if(jumpBuffer && isGrounded && jumpTimeCtr > 0)
+            if(((jumpBuffer && (isGrounded || isWalled) && jumpTimeCtr > 0) || (jumpBuffer && canDoubleJump)) && !isDashing)
             {
                 TryToJump();
                 jumpBuffer = false;
             }
+
         }
     }
 
@@ -153,6 +235,25 @@ public class Player : MonoBehaviour
 
             rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce);
 
+        }
+        else if(!isGrounded && isWalled)
+        {
+            if(isFacingRight)
+            {
+                rb.linearVelocity = new Vector2(-jumpForce/2.0f, jumpForce/1.2f);
+                wallJumpTimeCtr = 0.1f;
+            }
+            else
+            {
+                rb.linearVelocity = new Vector2(jumpForce /2.0f, jumpForce / 1.2f);
+                wallJumpTimeCtr = 0.1f;
+
+            }
+        }
+        else if(!isGrounded && !isWalled && canDoubleJump)
+        {
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce/1.2f);
+            canDoubleJump = false;
         }
     }
 
@@ -175,26 +276,40 @@ public class Player : MonoBehaviour
         if(newState != currentState)
         {
             currentState = newState;
-        }
-        else
-        {
+        
             switch(currentState)
             {
                 case playerState.IDLE:
                     playerAnimator.Play("PlayerIdle");
+                    Debug.Log("Idle");
                     break;
                 case playerState.RUNNING:
                     playerAnimator.Play("PlayerRun");
+                    Debug.Log("Run");
                     break;
                 case playerState.JUMPING:
                     playerAnimator.Play("PlayerJump");
+                    Debug.Log("Jump");
+                    break;
+                case playerState.DOUBLEJUMPING:
+                    playerAnimator.Play("PlayerDoubleJump");
+                    Debug.Log("DoubleJump");
                     break;
                 case playerState.FALLING:
                     playerAnimator.Play("PlayerFall");
+                    Debug.Log("Fall");
+                    break;
+                case playerState.CLIMBINGLEDGE:
+                    playerAnimator.Play("PlayerClimbLedge");
+                    Debug.Log("ClimbingLedge");
                     break;
                 case playerState.DASHING:
+                    playerAnimator.Play("PlayerDash");
+                    Debug.Log("Dash");
                     break;
                 case playerState.WALLSLIDING:
+                    playerAnimator.Play("PlayerWallHang");
+                    Debug.Log("WallHang");
                     break;
                 case playerState.ATTACKING:
                     break;
@@ -206,21 +321,60 @@ public class Player : MonoBehaviour
 
     private void HandleState()
     {
-        if(isGrounded && (Math.Abs(rb.linearVelocityX) > 0))
+        if (isDashing)
         {
-            SwitchState(playerState.RUNNING);
+            SwitchState(playerState.DASHING);
         }
-        else if(isGrounded && (Math.Abs(rb.linearVelocityX) == 0))
+        else
         {
-            SwitchState(playerState.IDLE);
+            if (isGrounded && (Math.Abs(rb.linearVelocityX) > 0))
+            {
+                SwitchState(playerState.RUNNING);
+            }
+            else if (isGrounded && (Math.Abs(rb.linearVelocityX) == 0))
+            {
+                SwitchState(playerState.IDLE);
+            }
+            if (!isGrounded && rb.linearVelocityY > 0)
+            {
+                if (canDoubleJump)
+                {
+                    SwitchState(playerState.JUMPING);
+                }
+                else
+                {
+                    SwitchState(playerState.DOUBLEJUMPING);
+                    rollCounter = 2;
+                }
+
+            }
+            else if (!isGrounded && !isWalled && rb.linearVelocityY <= 0 && rollCounter <= 0)
+            {
+                SwitchState(playerState.FALLING);
+            }
+            if (!isGrounded && isWalled && rb.linearVelocityY <= 0)
+            {
+                SwitchState(playerState.WALLSLIDING);
+            }
+            if (isLedge && rb.linearVelocityY <= 0)
+            {
+                if (((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
+                {
+                    rb.linearVelocity = new Vector2(0, 0);
+                    SwitchState(playerState.CLIMBINGLEDGE);
+                }
+
+            }
         }
-        if(!isGrounded && rb.linearVelocityY > 0)
+        
+        
+    }
+
+    public void DecrementRoll()
+    {
+        if(rollCounter > 0)
         {
-            SwitchState(playerState.JUMPING);
-        }
-        else if(!isGrounded && rb.linearVelocityY <= 0)
-        {
-            SwitchState(playerState.FALLING);
+            rollCounter--;
         }
     }
 
@@ -230,21 +384,108 @@ public class Player : MonoBehaviour
         {
             jumpTimeCtr -= Time.deltaTime;
         }
+        else
+        {
+            jumpBuffer = false;
+        }
+        if(wallJumpTimeCtr >= 0)
+        {
+            wallJumpTimeCtr -= Time.deltaTime;
+        }
+        if(dashTimeCtr > -dashCooldown)
+        {
+            dashTimeCtr -= Time.deltaTime;
+        }
+        if(dashTimeCtr > 0)
+        {
+            isDashing = true;
+        }
+        else
+        {
+            isDashing = false;
+        }
+        if(dashTimeCtr <= -dashCooldown && (isGrounded || isWalled))
+        {
+            canDash = true;
+        }
+
     }
 
     private void HandleCollision()
     {
+        bool isWalled1 = false;
+        bool isWalled2 = false;
         bool isGrounded1 = Physics2D.Raycast(transform.position + new Vector3(groundCheckSpacing, 0), Vector2.down, groundCheckDistance, whatIsGround);
         bool isGrounded2 = Physics2D.Raycast(transform.position + new Vector3(-groundCheckSpacing, 0), Vector2.down, groundCheckDistance, whatIsGround);
         isGrounded = isGrounded1 || isGrounded2;
+
+        if(isFacingRight)
+        {
+            isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.right, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.7f), Vector2.right, wallCheckDistance, whatIsWall);
+        }
+        else
+        {
+            isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.left, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.7f), Vector2.left, wallCheckDistance, whatIsWall);
+        }
+        isWalled = isWalled1 && isWalled2;
+
+        if(isWalled2 && !isWalled1)
+        {
+            isLedge = true;
+        }
+        else
+        {
+            isLedge = false;
+        }
+        if(isWalled || isGrounded)
+        {
+            canDoubleJump = true;
+        }
+
+
     }
+
+
+    public void SetActionLock()
+    {
+        actionLock = true;
+    }
+
+    public void ReleaseActionLock()
+    {
+
+        actionLock = false;
+        LedgeClimbPositionReset();
+    }
+
+    public void LedgeClimbPositionReset()
+    {
+        if (isFacingRight)
+        {
+            transform.position = new Vector3(transform.position.x + 0.55f, transform.position.y + 1.45f);
+        }
+        else
+        {
+            transform.position = new Vector3(transform.position.x - 0.55f, transform.position.y + 1.45f);
+        }
+        
+    }
+
+    IEnumerator DelayedEnd()
+    {
+        yield return new WaitForEndOfFrame();
+        ReleaseActionLock();// Logic here
+    }
+
 
     private void OnDrawGizmos()
     {
         Gizmos.DrawLine(transform.position + new Vector3(groundCheckSpacing, 0), transform.position + new Vector3(groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
         Gizmos.DrawLine(transform.position + new Vector3(-groundCheckSpacing, 0), transform.position + new Vector3(-groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
-        //Gizmos.DrawLine(transform.position + new Vector3(0, -1, 0), transform.position + new Vector3(0, -1, 0) + new Vector3(wallTouchDistance, 0));
-        //Gizmos.DrawWireCube(attackPointForward_2.position, new Vector3(5f, 2f, 0f));
+        Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing), transform.position + new Vector3(0, wallCheckSpacing) + new Vector3(wallCheckDistance, 0));
+        Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing*0.7f), transform.position + new Vector3(0, wallCheckSpacing*0.7f) + new Vector3(wallCheckDistance, 0));
         //Gizmos.DrawWireSphere(attackPointUp.position, attackRadius);
         //Gizmos.DrawWireSphere(attackPointDown.position, attackRadius);
     }
