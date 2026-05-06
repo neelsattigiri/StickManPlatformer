@@ -191,11 +191,11 @@ public class Player : MonoBehaviour
             {
                 if (isWalled && ((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
                 {
-                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed / 3);
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed / 4);
                 }
                 else if (rb.linearVelocity.y > -maxFallSpeed)
                 {
-                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 50f * Time.deltaTime);
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 25f * Time.deltaTime);
                 }
                 else
                 {
@@ -240,19 +240,19 @@ public class Player : MonoBehaviour
         {
             if(isFacingRight)
             {
-                rb.linearVelocity = new Vector2(-jumpForce/2.0f, jumpForce/1.2f);
+                rb.linearVelocity = new Vector2(-jumpForce/2.0f, jumpForce/1.3f);
                 wallJumpTimeCtr = 0.1f;
             }
             else
             {
-                rb.linearVelocity = new Vector2(jumpForce /2.0f, jumpForce / 1.2f);
+                rb.linearVelocity = new Vector2(jumpForce /2.0f, jumpForce / 1.3f);
                 wallJumpTimeCtr = 0.1f;
 
             }
         }
         else if(!isGrounded && !isWalled && canDoubleJump)
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce/1.2f);
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, jumpForce/1.3f);
             canDoubleJump = false;
         }
     }
