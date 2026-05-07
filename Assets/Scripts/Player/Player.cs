@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Linq.Expressions;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Player : MonoBehaviour
@@ -21,7 +22,6 @@ public class Player : MonoBehaviour
 
 
 
-
     //Global State Control Variables
     public bool canMove = true;
     public bool isGrounded = true;
@@ -36,6 +36,8 @@ public class Player : MonoBehaviour
     public bool actionLock = false;
     public bool isTurning = false;
     public bool isLanding = false;
+    public bool isTakingHit = false;
+    public bool isKnockedBack = false;
 
 
 
@@ -55,7 +57,8 @@ public class Player : MonoBehaviour
         ATTACKING,
         CLIMBINGLEDGE,
         TURNING,
-        LANDING
+        LANDING,
+        OUCH,
 
     }
 
@@ -71,6 +74,10 @@ public class Player : MonoBehaviour
     private float wallJumpTimeCtr = 0;
     private float dashTimeCtr = 0;
     private int rollCounter = 0;
+
+    public float knockBackDirectionX = 0;
+    public float knockBackDirectionY = 0;
+
 
     //Collision Variables
     [SerializeField] private LayerMask whatIsGround;
@@ -98,8 +105,9 @@ public class Player : MonoBehaviour
             HandleState();
             HandleCollision();
             HandleCounters();
+            HandleLanding();
         }
-        HandleLanding();
+        
     }
 
 
@@ -114,7 +122,7 @@ public class Player : MonoBehaviour
             HandleFall();
             HandleJump();
         }
-        
+        HandleKnockBack();
         
     }
 
@@ -153,7 +161,8 @@ public class Player : MonoBehaviour
 
     private void HandleMovement()
     {
-        if(canMove)
+        
+        if (canMove)
         {
             if(!isDashing)
             {
@@ -171,6 +180,16 @@ public class Player : MonoBehaviour
                 }
                 
             }
+        }
+        
+    }
+
+    private void HandleKnockBack()
+    {
+        if (isKnockedBack)
+        {
+            Debug.Log("HandleKnockBackCondition");
+            rb.linearVelocity = new Vector2(knockBackDirectionX, knockBackDirectionY);
         }
     }
 
@@ -355,7 +374,7 @@ public class Player : MonoBehaviour
                     break;
                 case playerState.FALLING:
                     playerAnimator.Play("PlayerFall");
-                    Debug.Log("Fall");
+                    Debug.Log("Falling");
                     break;
                 case playerState.CLIMBINGLEDGE:
                     playerAnimator.Play("PlayerClimbLedge");
@@ -363,7 +382,7 @@ public class Player : MonoBehaviour
                     break;
                 case playerState.DASHING:
                     playerAnimator.Play("PlayerDash");
-                    Debug.Log("Dash");
+                    Debug.Log("Dashed");
                     break;
                 case playerState.WALLSLIDING:
                     playerAnimator.Play("PlayerWallHang");
@@ -371,11 +390,15 @@ public class Player : MonoBehaviour
                     break;
                 case playerState.TURNING:
                     playerAnimator.Play("PlayerTurn");
-                    Debug.Log("Turning");
+                    Debug.Log("Turned");
                     break;
                 case playerState.LANDING:
                     playerAnimator.Play("PlayerLand");
-                    Debug.Log("Landing");
+                    Debug.Log("Landed");
+                    break;
+                case playerState.OUCH:
+                    playerAnimator.Play("PlayerOuch");
+                    Debug.Log("Took a hit");
                     break;
                 case playerState.ATTACKING:
                     break;
@@ -387,7 +410,13 @@ public class Player : MonoBehaviour
 
     private void HandleState()
     {
-        if (isDashing)
+
+        if(isTakingHit)
+        {
+            SwitchState(playerState.OUCH);
+        }
+
+        else if (isDashing)
         {
             SwitchState(playerState.DASHING);
         }
@@ -417,7 +446,7 @@ public class Player : MonoBehaviour
                 }
                 
             }
-            if (!isGrounded && rb.linearVelocityY > 0)
+            if (!isGrounded && rb.linearVelocityY > 0.6f * jumpForce)
             {
                 if (canDoubleJump)
                 {
@@ -529,6 +558,31 @@ public class Player : MonoBehaviour
 
     }
 
+    [ContextMenu("TAKE A HIT")]
+    public void TakeHit()
+    {
+        isTakingHit = true;
+        isDashing = false;
+        KnockBack();
+    }
+
+    public void HitOver()
+    {
+        isTakingHit = false;
+        KnockBackOver();
+        ReleaseActionLock();
+    }
+
+    public void KnockBack()
+    {
+        isKnockedBack = true;
+    }
+
+    public void KnockBackOver()
+    {
+        isKnockedBack = false;
+    }
+
 
     public void SetActionLock()
     {
@@ -539,7 +593,6 @@ public class Player : MonoBehaviour
     {
 
         actionLock = false;
-        LedgeClimbPositionReset();
     }
 
     public void LedgeClimbPositionReset()
@@ -558,7 +611,9 @@ public class Player : MonoBehaviour
     IEnumerator DelayedEnd()
     {
         yield return new WaitForEndOfFrame();
-        ReleaseActionLock();// Logic here
+
+        LedgeClimbPositionReset();
+        ReleaseActionLock();
     }
 
 
