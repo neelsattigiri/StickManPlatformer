@@ -6,7 +6,7 @@ public class Stats : MonoBehaviour
     public GameObject player;
     public int maxHP = 10;
 
-    [SerializeField]private int currentHP;
+    public int currentHP;
 
 
 
@@ -21,15 +21,12 @@ public class Stats : MonoBehaviour
         player.GetComponent<Player>().knockBackDirectionY = knockBackY;
         player.GetComponent<Player>().TakeHit();
         currentHP -= damage;
-        if(currentHP <= 0)
-        {
-            Death();
-        }
+
     }
 
     private void Death()
     {
         Debug.Log("Death");
-        
+        player.GetComponent<Player>().PlayerDeath();
     }
 }

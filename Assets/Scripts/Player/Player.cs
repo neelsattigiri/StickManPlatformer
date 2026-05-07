@@ -59,6 +59,7 @@ public class Player : MonoBehaviour
         TURNING,
         LANDING,
         OUCH,
+        DEATH
 
     }
 
@@ -101,11 +102,15 @@ public class Player : MonoBehaviour
     {
         if(!actionLock)
         {
-            HandleInput();
-            HandleState();
+            if(currentState != playerState.DEATH)
+            {
+                HandleInput();
+                HandleState();
+                HandleCounters();
+                HandleLanding();
+            }
             HandleCollision();
-            HandleCounters();
-            HandleLanding();
+            HandleDeath();
         }
         
     }
@@ -117,12 +122,24 @@ public class Player : MonoBehaviour
     {
         if(!actionLock)
         {
-            HandleMovement();
-            HandleFlip();
+            if (currentState != playerState.DEATH)
+            {
+                HandleMovement();
+                HandleFlip();
+                HandleJump();
+            }
+            else
+            {
+                rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+            }
             HandleFall();
-            HandleJump();
+            
         }
-        HandleKnockBack();
+        if (currentState != playerState.DEATH)
+        {
+            HandleKnockBack();
+        }
+        
         
     }
 
@@ -400,6 +417,10 @@ public class Player : MonoBehaviour
                     playerAnimator.Play("PlayerOuch");
                     Debug.Log("Took a hit");
                     break;
+                case playerState.DEATH:
+                    playerAnimator.Play("PlayerDeath");
+                    Debug.Log("Died");
+                    break;
                 case playerState.ATTACKING:
                     break;
                 default:
@@ -558,6 +579,14 @@ public class Player : MonoBehaviour
 
     }
 
+    public void HandleDeath()
+    {
+        if(gameObject.GetComponent<Stats>().currentHP <=0 && !isKnockedBack)
+        {
+            PlayerDeath();
+        }
+    }
+
     [ContextMenu("TAKE A HIT")]
     public void TakeHit()
     {
@@ -606,6 +635,11 @@ public class Player : MonoBehaviour
             transform.position = new Vector3(transform.position.x - 0.55f, transform.position.y + 1.40f);
         }
         
+    }
+
+    public void PlayerDeath()
+    {
+        SwitchState(playerState.DEATH);
     }
 
     IEnumerator DelayedEnd()
