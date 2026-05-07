@@ -176,10 +176,18 @@ public class Player : MonoBehaviour
 
     private void HandleLanding()
     {
-        if (rb.linearVelocityY < 0 && isGrounded)
+        if (rb.linearVelocityY < -maxFallSpeed/2 && isGrounded)
         {
             isLanding = true;
         }
+        else
+        {
+            if(currentState != playerState.LANDING)
+            {
+                isLanding = false;
+            }
+        }
+
     }
 
     private void HandleFall()
@@ -322,21 +330,22 @@ public class Player : MonoBehaviour
             {
                 isLanding = false;
             }
+            if(currentState != playerState.DOUBLEJUMPING)
+            {
+                rollCounter = 0;
+            }
         
             switch(currentState)
             {
                 case playerState.IDLE:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerIdle");
                     Debug.Log("Idle");
                     break;
                 case playerState.RUNNING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerRun");
                     Debug.Log("Run");
                     break;
                 case playerState.JUMPING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerJump");
                     Debug.Log("Jump");
                     break;
@@ -345,32 +354,26 @@ public class Player : MonoBehaviour
                     Debug.Log("DoubleJump");
                     break;
                 case playerState.FALLING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerFall");
                     Debug.Log("Fall");
                     break;
                 case playerState.CLIMBINGLEDGE:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerClimbLedge");
                     Debug.Log("ClimbingLedge");
                     break;
                 case playerState.DASHING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerDash");
                     Debug.Log("Dash");
                     break;
                 case playerState.WALLSLIDING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerWallHang");
                     Debug.Log("WallHang");
                     break;
                 case playerState.TURNING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerTurn");
                     Debug.Log("Turning");
                     break;
                 case playerState.LANDING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerLand");
                     Debug.Log("Landing");
                     break;
