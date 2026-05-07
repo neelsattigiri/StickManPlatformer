@@ -34,8 +34,10 @@ public class Player : MonoBehaviour
     public bool isLedge = false;
     public bool canDoubleJump = false;
     public bool actionLock = false;
-    
-    
+    public bool isTurning = false;
+    public bool isLanding = false;
+
+
 
 
 
@@ -51,7 +53,9 @@ public class Player : MonoBehaviour
         WALLSLIDING,
         DASHING,
         ATTACKING,
-        CLIMBINGLEDGE
+        CLIMBINGLEDGE,
+        TURNING,
+        LANDING
 
     }
 
@@ -95,7 +99,7 @@ public class Player : MonoBehaviour
             HandleCollision();
             HandleCounters();
         }
-        
+        HandleLanding();
     }
 
 
@@ -170,10 +174,21 @@ public class Player : MonoBehaviour
         }
     }
 
+    private void HandleLanding()
+    {
+        if (rb.linearVelocityY < 0 && isGrounded)
+        {
+            isLanding = true;
+        }
+    }
+
     private void HandleFall()
     {
         if(!isDashing)
         {
+
+            
+
             if (rb.linearVelocity.y > 0)
             {
                 if (jumpTerminate)
@@ -197,19 +212,22 @@ public class Player : MonoBehaviour
                 {
                     rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 25f * Time.deltaTime);
                 }
-                else
+                else if(!isGrounded)
                 {
                     rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed);
                 }
-
-
+                else if(isGrounded)
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
+                }
             }
+            
             jumpTerminate = false;
         }
 
     else
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);            
         }
 
         
@@ -259,16 +277,35 @@ public class Player : MonoBehaviour
 
     private void HandleFlip()
     {
-        if(isFacingRight && rb.linearVelocityX < -0.1f)
+        if (isFacingRight && rb.linearVelocityX < -0.1f)
         {
             transform.Rotate(0, 180, 0);
             isFacingRight = !isFacingRight;
+            if (currentState == playerState.IDLE || currentState == playerState.RUNNING)
+            {
+                isTurning = true;
+            }
+            
         }
         else if(!isFacingRight && rb.linearVelocityX > 0.1f)
         {
             transform.Rotate(0, 180, 0);
             isFacingRight = !isFacingRight;
+            if (currentState == playerState.IDLE || currentState == playerState.RUNNING)
+            {
+                isTurning = true;
+            }
         }
+    }
+
+    public void TurnComplete()
+    {
+        isTurning = false;
+    }
+
+    public void LandingComplete()
+    {
+        isLanding = false;
     }
 
     private void SwitchState(playerState newState)
@@ -276,6 +313,15 @@ public class Player : MonoBehaviour
         if(newState != currentState)
         {
             currentState = newState;
+
+            if(currentState != playerState.TURNING)
+            {
+                isTurning = false;
+            }
+            if(currentState != playerState.LANDING)
+            {
+                isLanding = false;
+            }
         
             switch(currentState)
             {
@@ -318,6 +364,16 @@ public class Player : MonoBehaviour
                     playerAnimator.Play("PlayerWallHang");
                     Debug.Log("WallHang");
                     break;
+                case playerState.TURNING:
+                    rollCounter = 0;
+                    playerAnimator.Play("PlayerTurn");
+                    Debug.Log("Turning");
+                    break;
+                case playerState.LANDING:
+                    rollCounter = 0;
+                    playerAnimator.Play("PlayerLand");
+                    Debug.Log("Landing");
+                    break;
                 case playerState.ATTACKING:
                     break;
                 default:
@@ -336,11 +392,27 @@ public class Player : MonoBehaviour
         {
             if (isGrounded && (Math.Abs(rb.linearVelocityX) > 0))
             {
-                SwitchState(playerState.RUNNING);
+                if(isTurning)
+                {
+                    SwitchState(playerState.TURNING);
+                }
+                else
+                {
+                    SwitchState(playerState.RUNNING);
+                }
+                
             }
             else if (isGrounded && (Math.Abs(rb.linearVelocityX) == 0))
             {
-                SwitchState(playerState.IDLE);
+                if(isLanding)
+                {
+                    SwitchState(playerState.LANDING);
+                }
+                else
+                {
+                    SwitchState(playerState.IDLE);
+                }
+                
             }
             if (!isGrounded && rb.linearVelocityY > 0)
             {
@@ -351,7 +423,7 @@ public class Player : MonoBehaviour
                 else
                 {
                     SwitchState(playerState.DOUBLEJUMPING);
-                    rollCounter = 2;
+                    rollCounter = 1;
                 }
 
             }
@@ -471,11 +543,11 @@ public class Player : MonoBehaviour
     {
         if (isFacingRight)
         {
-            transform.position = new Vector3(transform.position.x + 0.55f, transform.position.y + 1.45f);
+            transform.position = new Vector3(transform.position.x + 0.55f, transform.position.y + 1.40f);
         }
         else
         {
-            transform.position = new Vector3(transform.position.x - 0.55f, transform.position.y + 1.45f);
+            transform.position = new Vector3(transform.position.x - 0.55f, transform.position.y + 1.40f);
         }
         
     }
@@ -485,6 +557,8 @@ public class Player : MonoBehaviour
         yield return new WaitForEndOfFrame();
         ReleaseActionLock();// Logic here
     }
+
+
 
 
     private void OnDrawGizmos()
