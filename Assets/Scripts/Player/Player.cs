@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Linq.Expressions;
+using Unity.VisualScripting;
 using UnityEngine;
 
 public class Player : MonoBehaviour
@@ -21,7 +22,6 @@ public class Player : MonoBehaviour
 
 
 
-
     //Global State Control Variables
     public bool canMove = true;
     public bool isGrounded = true;
@@ -34,8 +34,12 @@ public class Player : MonoBehaviour
     public bool isLedge = false;
     public bool canDoubleJump = false;
     public bool actionLock = false;
-    
-    
+    public bool isTurning = false;
+    public bool isLanding = false;
+    public bool isTakingHit = false;
+    public bool isKnockedBack = false;
+
+
 
 
 
@@ -51,7 +55,11 @@ public class Player : MonoBehaviour
         WALLSLIDING,
         DASHING,
         ATTACKING,
-        CLIMBINGLEDGE
+        CLIMBINGLEDGE,
+        TURNING,
+        LANDING,
+        OUCH,
+        DEATH
 
     }
 
@@ -67,6 +75,11 @@ public class Player : MonoBehaviour
     private float wallJumpTimeCtr = 0;
     private float dashTimeCtr = 0;
     private int rollCounter = 0;
+    public float damageCooldownCtr = 0;
+
+    public float knockBackDirectionX = 0;
+    public float knockBackDirectionY = 0;
+
 
     //Collision Variables
     [SerializeField] private LayerMask whatIsGround;
@@ -90,10 +103,15 @@ public class Player : MonoBehaviour
     {
         if(!actionLock)
         {
-            HandleInput();
-            HandleState();
+            if(currentState != playerState.DEATH)
+            {
+                HandleInput();
+                HandleState();
+                HandleCounters();
+                HandleLanding();
+            }
             HandleCollision();
-            HandleCounters();
+            HandleDeath();
         }
         
     }
@@ -105,10 +123,22 @@ public class Player : MonoBehaviour
     {
         if(!actionLock)
         {
-            HandleMovement();
-            HandleFlip();
+            if (currentState != playerState.DEATH)
+            {
+                HandleMovement();
+                HandleFlip();
+                HandleJump();
+            }
+            else
+            {
+                rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
+            }
             HandleFall();
-            HandleJump();
+            
+        }
+        if (currentState != playerState.DEATH)
+        {
+            HandleKnockBack();
         }
         
         
@@ -149,7 +179,8 @@ public class Player : MonoBehaviour
 
     private void HandleMovement()
     {
-        if(canMove)
+        
+        if (canMove)
         {
             if(!isDashing)
             {
@@ -168,12 +199,40 @@ public class Player : MonoBehaviour
                 
             }
         }
+        
+    }
+
+    private void HandleKnockBack()
+    {
+        if (isKnockedBack)
+        {
+            rb.linearVelocity = new Vector2(knockBackDirectionX, knockBackDirectionY);
+        }
+    }
+
+    private void HandleLanding()
+    {
+        if (rb.linearVelocityY < -maxFallSpeed/2 && isGrounded)
+        {
+            isLanding = true;
+        }
+        else
+        {
+            if(currentState != playerState.LANDING)
+            {
+                isLanding = false;
+            }
+        }
+
     }
 
     private void HandleFall()
     {
         if(!isDashing)
         {
+
+            
+
             if (rb.linearVelocity.y > 0)
             {
                 if (jumpTerminate)
@@ -189,7 +248,7 @@ public class Player : MonoBehaviour
             }
             else
             {
-                if (isWalled && ((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
+                if (isWalled && ((isFacingRight && xinput>0) || (!isFacingRight && xinput<0)))
                 {
                     rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed / 4);
                 }
@@ -197,19 +256,22 @@ public class Player : MonoBehaviour
                 {
                     rb.linearVelocity = new Vector2(rb.linearVelocity.x, rb.linearVelocity.y - 25f * Time.deltaTime);
                 }
-                else
+                else if(!isGrounded)
                 {
                     rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed);
                 }
-
-
+                else if(isGrounded)
+                {
+                    rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
+                }
             }
+            
             jumpTerminate = false;
         }
 
     else
         {
-            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x, 0);            
         }
 
         
@@ -240,12 +302,12 @@ public class Player : MonoBehaviour
         {
             if(isFacingRight)
             {
-                rb.linearVelocity = new Vector2(-jumpForce/2.0f, jumpForce/1.3f);
+                rb.linearVelocity = new Vector2(-jumpForce/2.0f, jumpForce*0.9f);
                 wallJumpTimeCtr = 0.1f;
             }
             else
             {
-                rb.linearVelocity = new Vector2(jumpForce /2.0f, jumpForce / 1.3f);
+                rb.linearVelocity = new Vector2(jumpForce /2.0f, jumpForce*0.9f);
                 wallJumpTimeCtr = 0.1f;
 
             }
@@ -259,16 +321,35 @@ public class Player : MonoBehaviour
 
     private void HandleFlip()
     {
-        if(isFacingRight && rb.linearVelocityX < -0.1f)
+        if (isFacingRight && rb.linearVelocityX < -0.1f)
         {
             transform.Rotate(0, 180, 0);
             isFacingRight = !isFacingRight;
+            if (currentState == playerState.IDLE || currentState == playerState.RUNNING)
+            {
+                isTurning = true;
+            }
+            
         }
         else if(!isFacingRight && rb.linearVelocityX > 0.1f)
         {
             transform.Rotate(0, 180, 0);
             isFacingRight = !isFacingRight;
+            if (currentState == playerState.IDLE || currentState == playerState.RUNNING)
+            {
+                isTurning = true;
+            }
         }
+    }
+
+    public void TurnComplete()
+    {
+        isTurning = false;
+    }
+
+    public void LandingComplete()
+    {
+        isLanding = false;
     }
 
     private void SwitchState(playerState newState)
@@ -276,21 +357,31 @@ public class Player : MonoBehaviour
         if(newState != currentState)
         {
             currentState = newState;
+
+            if(currentState != playerState.TURNING)
+            {
+                isTurning = false;
+            }
+            if(currentState != playerState.LANDING)
+            {
+                isLanding = false;
+            }
+            if(currentState != playerState.DOUBLEJUMPING)
+            {
+                rollCounter = 0;
+            }
         
             switch(currentState)
             {
                 case playerState.IDLE:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerIdle");
                     Debug.Log("Idle");
                     break;
                 case playerState.RUNNING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerRun");
                     Debug.Log("Run");
                     break;
                 case playerState.JUMPING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerJump");
                     Debug.Log("Jump");
                     break;
@@ -299,24 +390,36 @@ public class Player : MonoBehaviour
                     Debug.Log("DoubleJump");
                     break;
                 case playerState.FALLING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerFall");
-                    Debug.Log("Fall");
+                    Debug.Log("Falling");
                     break;
                 case playerState.CLIMBINGLEDGE:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerClimbLedge");
                     Debug.Log("ClimbingLedge");
                     break;
                 case playerState.DASHING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerDash");
-                    Debug.Log("Dash");
+                    Debug.Log("Dashed");
                     break;
                 case playerState.WALLSLIDING:
-                    rollCounter = 0;
                     playerAnimator.Play("PlayerWallHang");
                     Debug.Log("WallHang");
+                    break;
+                case playerState.TURNING:
+                    playerAnimator.Play("PlayerTurn");
+                    Debug.Log("Turned");
+                    break;
+                case playerState.LANDING:
+                    playerAnimator.Play("PlayerLand");
+                    Debug.Log("Landed");
+                    break;
+                case playerState.OUCH:
+                    playerAnimator.Play("PlayerOuch");
+                    Debug.Log("Took a hit");
+                    break;
+                case playerState.DEATH:
+                    playerAnimator.Play("PlayerDeath");
+                    Debug.Log("Died");
                     break;
                 case playerState.ATTACKING:
                     break;
@@ -328,7 +431,13 @@ public class Player : MonoBehaviour
 
     private void HandleState()
     {
-        if (isDashing)
+
+        if(isTakingHit)
+        {
+            SwitchState(playerState.OUCH);
+        }
+
+        else if (isDashing)
         {
             SwitchState(playerState.DASHING);
         }
@@ -336,13 +445,29 @@ public class Player : MonoBehaviour
         {
             if (isGrounded && (Math.Abs(rb.linearVelocityX) > 0))
             {
-                SwitchState(playerState.RUNNING);
+                if(isTurning)
+                {
+                    SwitchState(playerState.TURNING);
+                }
+                else
+                {
+                    SwitchState(playerState.RUNNING);
+                }
+                
             }
             else if (isGrounded && (Math.Abs(rb.linearVelocityX) == 0))
             {
-                SwitchState(playerState.IDLE);
+                if(isLanding)
+                {
+                    SwitchState(playerState.LANDING);
+                }
+                else
+                {
+                    SwitchState(playerState.IDLE);
+                }
+                
             }
-            if (!isGrounded && rb.linearVelocityY > 0)
+            if (!isGrounded && rb.linearVelocityY > 0.6f * jumpForce)
             {
                 if (canDoubleJump)
                 {
@@ -351,7 +476,7 @@ public class Player : MonoBehaviour
                 else
                 {
                     SwitchState(playerState.DOUBLEJUMPING);
-                    rollCounter = 2;
+                    rollCounter = 1;
                 }
 
             }
@@ -365,7 +490,7 @@ public class Player : MonoBehaviour
             }
             if (isLedge && rb.linearVelocityY <= 0)
             {
-                if (((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
+                if (((isFacingRight && xinput>0) || (!isFacingRight && xinput<0)))
                 {
                     rb.linearVelocity = new Vector2(0, 0);
                     SwitchState(playerState.CLIMBINGLEDGE);
@@ -415,6 +540,10 @@ public class Player : MonoBehaviour
         {
             canDash = true;
         }
+        if(damageCooldownCtr >= 0)
+        {
+            damageCooldownCtr -= Time.deltaTime;
+        }
 
     }
 
@@ -429,12 +558,12 @@ public class Player : MonoBehaviour
         if(isFacingRight)
         {
             isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.right, wallCheckDistance, whatIsWall);
-            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.7f), Vector2.right, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.5f), Vector2.right, wallCheckDistance, whatIsWall);
         }
         else
         {
             isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.left, wallCheckDistance, whatIsWall);
-            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.7f), Vector2.left, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.5f), Vector2.left, wallCheckDistance, whatIsWall);
         }
         isWalled = isWalled1 && isWalled2;
 
@@ -454,6 +583,49 @@ public class Player : MonoBehaviour
 
     }
 
+    public void HandleDeath()
+    {
+        if(gameObject.GetComponent<Stats>().currentHP <=0 && !isKnockedBack)
+        {
+            PlayerDeath();
+        }
+    }
+
+    [ContextMenu("TAKE A HIT")]
+    public void TakeHit()
+    {
+        if(!isTakingHit && damageCooldownCtr<=0)
+        {
+            damageCooldownCtr = 1.5f;
+            Debug.Log("TakeHit");
+            isTakingHit = true;
+            isDashing = false;
+            KnockBack();
+        }
+        
+    }
+
+    public void HitOver()
+    {
+        Debug.Log("HitOver");
+        KnockBackOver();
+        ReleaseActionLock();
+        canDash = true;
+        canDoubleJump = true;
+        rollCounter = 1;
+        isTakingHit = false;
+    }
+
+    public void KnockBack()
+    {
+        isKnockedBack = true;
+    }
+
+    public void KnockBackOver()
+    {
+        isKnockedBack = false;
+    }
+
 
     public void SetActionLock()
     {
@@ -464,27 +636,35 @@ public class Player : MonoBehaviour
     {
 
         actionLock = false;
-        LedgeClimbPositionReset();
     }
 
     public void LedgeClimbPositionReset()
     {
         if (isFacingRight)
         {
-            transform.position = new Vector3(transform.position.x + 0.55f, transform.position.y + 1.45f);
+            transform.position = new Vector3(transform.position.x + 0.55f, transform.position.y + 1.40f);
         }
         else
         {
-            transform.position = new Vector3(transform.position.x - 0.55f, transform.position.y + 1.45f);
+            transform.position = new Vector3(transform.position.x - 0.55f, transform.position.y + 1.40f);
         }
         
+    }
+
+    public void PlayerDeath()
+    {
+        SwitchState(playerState.DEATH);
     }
 
     IEnumerator DelayedEnd()
     {
         yield return new WaitForEndOfFrame();
-        ReleaseActionLock();// Logic here
+
+        LedgeClimbPositionReset();
+        ReleaseActionLock();
     }
+
+
 
 
     private void OnDrawGizmos()
@@ -492,7 +672,7 @@ public class Player : MonoBehaviour
         Gizmos.DrawLine(transform.position + new Vector3(groundCheckSpacing, 0), transform.position + new Vector3(groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
         Gizmos.DrawLine(transform.position + new Vector3(-groundCheckSpacing, 0), transform.position + new Vector3(-groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
         Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing), transform.position + new Vector3(0, wallCheckSpacing) + new Vector3(wallCheckDistance, 0));
-        Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing*0.7f), transform.position + new Vector3(0, wallCheckSpacing*0.7f) + new Vector3(wallCheckDistance, 0));
+        Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing*0.5f), transform.position + new Vector3(0, wallCheckSpacing*0.5f) + new Vector3(wallCheckDistance, 0));
         //Gizmos.DrawWireSphere(attackPointUp.position, attackRadius);
         //Gizmos.DrawWireSphere(attackPointDown.position, attackRadius);
     }
