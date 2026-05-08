@@ -75,6 +75,7 @@ public class Player : MonoBehaviour
     private float wallJumpTimeCtr = 0;
     private float dashTimeCtr = 0;
     private int rollCounter = 0;
+    public float damageCooldownCtr = 0;
 
     public float knockBackDirectionX = 0;
     public float knockBackDirectionY = 0;
@@ -205,7 +206,6 @@ public class Player : MonoBehaviour
     {
         if (isKnockedBack)
         {
-            Debug.Log("HandleKnockBackCondition");
             rb.linearVelocity = new Vector2(knockBackDirectionX, knockBackDirectionY);
         }
     }
@@ -248,7 +248,7 @@ public class Player : MonoBehaviour
             }
             else
             {
-                if (isWalled && ((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
+                if (isWalled && ((isFacingRight && xinput>0) || (!isFacingRight && xinput<0)))
                 {
                     rb.linearVelocity = new Vector2(rb.linearVelocity.x, -maxFallSpeed / 4);
                 }
@@ -302,12 +302,12 @@ public class Player : MonoBehaviour
         {
             if(isFacingRight)
             {
-                rb.linearVelocity = new Vector2(-jumpForce/2.0f, jumpForce/1.3f);
+                rb.linearVelocity = new Vector2(-jumpForce/2.0f, jumpForce*0.9f);
                 wallJumpTimeCtr = 0.1f;
             }
             else
             {
-                rb.linearVelocity = new Vector2(jumpForce /2.0f, jumpForce / 1.3f);
+                rb.linearVelocity = new Vector2(jumpForce /2.0f, jumpForce*0.9f);
                 wallJumpTimeCtr = 0.1f;
 
             }
@@ -490,7 +490,7 @@ public class Player : MonoBehaviour
             }
             if (isLedge && rb.linearVelocityY <= 0)
             {
-                if (((isFacingRight && Input.GetKey(KeyCode.D)) || (!isFacingRight && Input.GetKey(KeyCode.A))))
+                if (((isFacingRight && xinput>0) || (!isFacingRight && xinput<0)))
                 {
                     rb.linearVelocity = new Vector2(0, 0);
                     SwitchState(playerState.CLIMBINGLEDGE);
@@ -540,6 +540,10 @@ public class Player : MonoBehaviour
         {
             canDash = true;
         }
+        if(damageCooldownCtr >= 0)
+        {
+            damageCooldownCtr -= Time.deltaTime;
+        }
 
     }
 
@@ -554,12 +558,12 @@ public class Player : MonoBehaviour
         if(isFacingRight)
         {
             isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.right, wallCheckDistance, whatIsWall);
-            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.7f), Vector2.right, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.5f), Vector2.right, wallCheckDistance, whatIsWall);
         }
         else
         {
             isWalled1 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing), Vector2.left, wallCheckDistance, whatIsWall);
-            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.7f), Vector2.left, wallCheckDistance, whatIsWall);
+            isWalled2 = Physics2D.Raycast(transform.position + new Vector3(0, wallCheckSpacing*0.5f), Vector2.left, wallCheckDistance, whatIsWall);
         }
         isWalled = isWalled1 && isWalled2;
 
@@ -590,16 +594,26 @@ public class Player : MonoBehaviour
     [ContextMenu("TAKE A HIT")]
     public void TakeHit()
     {
-        isTakingHit = true;
-        isDashing = false;
-        KnockBack();
+        if(!isTakingHit && damageCooldownCtr<=0)
+        {
+            damageCooldownCtr = 1.5f;
+            Debug.Log("TakeHit");
+            isTakingHit = true;
+            isDashing = false;
+            KnockBack();
+        }
+        
     }
 
     public void HitOver()
     {
-        isTakingHit = false;
+        Debug.Log("HitOver");
         KnockBackOver();
         ReleaseActionLock();
+        canDash = true;
+        canDoubleJump = true;
+        rollCounter = 1;
+        isTakingHit = false;
     }
 
     public void KnockBack()
@@ -658,7 +672,7 @@ public class Player : MonoBehaviour
         Gizmos.DrawLine(transform.position + new Vector3(groundCheckSpacing, 0), transform.position + new Vector3(groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
         Gizmos.DrawLine(transform.position + new Vector3(-groundCheckSpacing, 0), transform.position + new Vector3(-groundCheckSpacing, 0) + new Vector3(0, -groundCheckDistance));
         Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing), transform.position + new Vector3(0, wallCheckSpacing) + new Vector3(wallCheckDistance, 0));
-        Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing*0.7f), transform.position + new Vector3(0, wallCheckSpacing*0.7f) + new Vector3(wallCheckDistance, 0));
+        Gizmos.DrawLine(transform.position + new Vector3(0, wallCheckSpacing*0.5f), transform.position + new Vector3(0, wallCheckSpacing*0.5f) + new Vector3(wallCheckDistance, 0));
         //Gizmos.DrawWireSphere(attackPointUp.position, attackRadius);
         //Gizmos.DrawWireSphere(attackPointDown.position, attackRadius);
     }

@@ -7,14 +7,15 @@ public class Hazard : MonoBehaviour
     public float knockBackPowerX = 10;
     public float knockBackPowerY = 10;
 
-    private void OnTriggerEnter2D(Collider2D collision)
+
+    private void OnTriggerStay2D(Collider2D collision)
     {
         if (collision.gameObject.tag == "Player")
         {
             float dirX = 0;
             float dirY = 0;
 
-            if(transform.position.x - collision.transform.position.x <= 0)
+            if (transform.position.x - collision.transform.position.x <= 0)
             {
                 dirX = knockBackPowerX;
             }

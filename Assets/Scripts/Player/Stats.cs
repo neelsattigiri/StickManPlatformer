@@ -17,10 +17,14 @@ public class Stats : MonoBehaviour
 
     public void TakeDamage(int damage, float knockBackX, float knockBackY)
     {
-        player.GetComponent<Player>().knockBackDirectionX = knockBackX;
-        player.GetComponent<Player>().knockBackDirectionY = knockBackY;
-        player.GetComponent<Player>().TakeHit();
-        currentHP -= damage;
+        if(player.GetComponent<Player>().damageCooldownCtr <=0)
+        {
+            player.GetComponent<Player>().knockBackDirectionX = knockBackX;
+            player.GetComponent<Player>().knockBackDirectionY = knockBackY;
+            player.GetComponent<Player>().TakeHit();
+            currentHP -= damage;
+        }
+        
 
     }
 
