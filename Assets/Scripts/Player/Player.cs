@@ -474,7 +474,7 @@ public class Player : MonoBehaviour
         }
         else
         {
-            if (!isGrounded && rb.linearVelocityY > 0.1f * jumpForce)
+            if (!isGrounded && rb.linearVelocityY >=0.6f * jumpForce)
             {
                 if (canDoubleJump && currentState != playerState.DOUBLEJUMPING)
                 {
