@@ -213,10 +213,10 @@ TextureImporter:
       name: Forest_5
       rect:
         serializedVersion: 2
-        x: 77
-        y: 4555
+        x: 252
+        y: 4349
         width: 264
-        height: 570
+        height: 729
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -235,12 +235,12 @@ TextureImporter:
       name: Forest_6
       rect:
         serializedVersion: 2
-        x: 499
-        y: 4560
-        width: 261
-        height: 568
+        x: 771
+        y: 4862
+        width: 257
+        height: 372
       alignment: 0
-      pivot: {x: 0, y: 0}
+      pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
       customData: 
       outline: []
@@ -249,6 +249,50 @@ TextureImporter:
       bones: []
       spriteID: 4eb03c111a5530548bb6db1e41b9c17a
       internalID: 1345410913
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Forest_7
+      rect:
+        serializedVersion: 2
+        x: 765
+        y: 4352
+        width: 257
+        height: 371
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fa1740d39588cc34995b1bedd90e82af
+      internalID: 2094980466
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Forest_8
+      rect:
+        serializedVersion: 2
+        x: 1273
+        y: 4351
+        width: 267
+        height: 730
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: e375007f676ff9e4fbed12c96931403a
+      internalID: 482692597
       vertices: []
       indices: 
       edges: []
@@ -276,6 +320,8 @@ TextureImporter:
       Forest_4: 1110842465
       Forest_5: 526159770
       Forest_6: 1345410913
+      Forest_7: 2094980466
+      Forest_8: 482692597
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
